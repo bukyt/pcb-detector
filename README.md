@@ -9,6 +9,6 @@ https://github.com/VanillaHours/pcbDefectDetectionYOLO -pcb defects with yolov3
 https://www.nature.com/articles/s41598-022-16302-3 - pcb defects with yolo  
 https://www.kaggle.com/datasets/akhatova/pcb-defects - train set for pcb defects  
 https://universe.roboflow.com/component-detection-for-pcb/component-dzbbw  
-
+https://universe.roboflow.com/pcbboard/pcb-board-component
 
 I aim to train my model on Ouman OÜ pcb-s and schematics
