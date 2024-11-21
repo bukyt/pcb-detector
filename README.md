@@ -12,3 +12,12 @@ https://universe.roboflow.com/component-detection-for-pcb/component-dzbbw
 https://universe.roboflow.com/pcbboard/pcb-board-component
 
 I aim to train my model on Ouman OÜ pcb-s and schematics
+  
+  
+TODO:  
+- Get exact timings of how fast the model can or should work.  
+- Scale up the detection to use the full resolution for better results.  
+- Try out ResNext101, to see how it compares with YOLO.  
+- Make a list of components I need to detect for certain.  
+- Inquire what the accuracy should be and how often can the needed component go past detection without being noted.  
+- Write the theoretical part of the paper before 8th of december.  
