@@ -48,7 +48,7 @@ def change_focus(newfocus):
     vc.set(28,newfocus*5)
 
 if __name__ == "__main__":
-    focus=101
+    focus=82
     vc = cv2.VideoCapture(0)
     vc.set(cv2.CAP_PROP_FRAME_WIDTH, 4978)
     vc.set(cv2.CAP_PROP_FRAME_HEIGHT, 3264)
@@ -58,7 +58,7 @@ if __name__ == "__main__":
     #train
     ###########train_model()##############
     # Load a YOLO model
-    model = YOLO("runs/detect/train5/weights/best.pt")  # Ensure "yolo11n.pt" model path is correct
+    model = YOLO("training/yolo_dataset/yolov11_keypoint_train/experiment_14/weights/best.pt")  # Ensure "yolo11n.pt" model path is correct
     
     # Set camera properties if necessary
     # vc.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))

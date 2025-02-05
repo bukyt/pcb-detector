@@ -8,7 +8,7 @@ def change_focus(newfocus):
     global vc
     vc.set(28,newfocus*5)
 
-focus=101
+focus=82
 vc = cv2.VideoCapture(0)
 vc.set(cv2.CAP_PROP_FRAME_WIDTH, 4978)
 vc.set(cv2.CAP_PROP_FRAME_HEIGHT, 3264)
@@ -20,14 +20,14 @@ if vc.isOpened():
 else:
     rval = False
 i=0
-while rval and i<1000:
+while rval and i<300:
     rval, frame = vc.read()  # Read a new frame
     frame=cv2.resize(frame, (1920, round(3496/4656*1920)), fx = 0.1, fy = 0.1)
     if not rval:
         break
     getImage(vc,frame)
-    cv2.imshow("Image", frame)
-    cv2.imwrite("images/image"+str(i)+".jpg",frame)
+    cv2.imshow("Image_14_", frame)
+    cv2.imwrite("images/image_14_"+str(i)+".jpg",frame)
     # Exit on ESC key press
     i+=1
     time.sleep(0.1)

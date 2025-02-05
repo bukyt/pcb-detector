@@ -1,0 +1,11 @@
+kpt_shape: [2,3]
+names:
+  0: poles
+  1: nothing
+  2: negative
+  3: positive
+
+
+path: ./
+train: train.txt
+val: val.txt
