@@ -2,7 +2,6 @@ import cv2
 import sys
 from ultralytics import YOLO
 import time
-#https://universe.roboflow.com/gtmc/elcomps/dataset/9# dataset
 
 def train_model():
     # Initialize YOLO model

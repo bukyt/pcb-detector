@@ -1,0 +1,4 @@
+capacitor_negative
+capacitor_positive
+coil
+transformer

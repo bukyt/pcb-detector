@@ -1,9 +1,7 @@
-- saa kirjalik luba mingeid plaate näidata  
 - pane peatükid või mõtted kirja jooksvalt  
 - proovi resnext v muu mudelit  
 - järgmise treening hulga märgistamine  
 - pane ideed rakenduse jaoks kirja  
-- 
 
 Praegused ideed:
  - rakendus võiks kasutada etalon plaadi manuaalset märkimist ja siis sellega järgnevate võrdlemist, saab arvutada nurkasid skeletoni põhjal, kuidas asetsevad osad ning seda kasutada vigaselt asetatud juppida nägemiseks

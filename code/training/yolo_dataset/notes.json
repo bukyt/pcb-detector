@@ -1,0 +1,25 @@
+{
+  "categories": [
+    {
+      "id": 0,
+      "name": "capacitor_negative"
+    },
+    {
+      "id": 1,
+      "name": "capacitor_positive"
+    },
+    {
+      "id": 2,
+      "name": "coil"
+    },
+    {
+      "id": 3,
+      "name": "transformer"
+    }
+  ],
+  "info": {
+    "year": 2025,
+    "version": "1.0",
+    "contributor": "Label Studio"
+  }
+}
