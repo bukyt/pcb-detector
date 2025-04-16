@@ -50,10 +50,6 @@ def load_yaml_config(yaml_path):
     with open(yaml_path, 'r') as file:
         return yaml.safe_load(file)
 
-data_config = load_yaml_config("C:\\Users\\joona\\ylikool\\baka\\pcb-detector\\code\\training\\yolo_dataset\\data.yaml")
-train_dir = data_config['train']
-val_dir = data_config['val']
-num_classes = len(data_config['names']) + 1  # Background + classes
 
 # Custom dataset class
 class SkeletonDataset(Dataset):

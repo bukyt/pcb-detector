@@ -1,0 +1,9 @@
+teen kõigile eraldi poosi tuvastust
+https://github.com/Res2Net/Res2Net-Pose-Estimation
+ja 
+https://github.com/VL97/Pose-estimation-using-Deep-CNN-encoder/blob/master/train.py
+valmis teha!!!
+
+
+
+järgmine kord resnext, tee obb andmestikust
