@@ -8,3 +8,7 @@ Praegused ideed:
  - algne testimiseks loodud 400 pildine treening hulk ei andud häid tulemusi kuid seda oli ka oodata, järgnevas treening hulgas on rohkem andmeid
  ![alt text](code/training/yolo_dataset/yolov11_keypoint_train/experiment_14/confusion_matrix_normalized.png)
  - kuigi pose estimation loss muutus väga väikeseks on siiski mure et enamus asju jääb tuvastamata, kindlus on väga madal, 
+  
+  
+  
+OBB saab luua kui kasutada juba märgendatud skelette, võtan pooluste vahemaa ruudu külje pikkuseks ja muudan skeletti joone keskteljeks

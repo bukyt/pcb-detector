@@ -14,7 +14,10 @@ class_name = "capacitor"
 val_size = 50
 image_ext = ".PNG"
 # =============================
-
+#We make the keypoints of files into OBB here
+#We assume all skeleton bounding boxes should be squares as the capacitor's are circular when seen from above
+#The algorithm for achieving this, first finds the distance of the keypoints from eachother, then finds the height and width by pythagorean theorem
+#Gets the angle of the obb with tangens
 def parse_line(line):
     parts = list(map(float, line.strip().split()))
     kp1_x, kp1_y = parts[5], parts[6]
@@ -31,13 +34,9 @@ def compute_obb(kp_top, kp_bot):
 
     angle = math.atan2(dy, dx)
     angle_deg = math.degrees(angle)
-
-    # Get OBB vector representation
-    t = height / 2
-    b = height / 2
-    r = width / 2
-    l = width / 2
-    return [t, r, b, l, width, height], cx, cy
+    if(angle_deg<0):
+        angle_deg+=360
+    return [cx,cy,width,height,angle_deg], cx, cy, angle_deg
 
 def load_image_size(image_path):
     with Image.open(image_path) as img:
@@ -76,8 +75,7 @@ def main():
             with open(label_file) as f:
                 for line in f:
                     (kp_top, kp_bot) = parse_line(line)
-                    obb, cx, cy = compute_obb(kp_top, kp_bot)
-
+                    obb, cx, cy, angle_deg = compute_obb(kp_top, kp_bot)
                     coco["annotations"].append({
                         "id": ann_id,
                         "image_id": img_id,
@@ -87,7 +85,8 @@ def main():
                         "keypoints": [kp_top[0], kp_top[1], 2, kp_bot[0], kp_bot[1], 2],
                         "num_keypoints": 2,
                         "iscrowd": 0,
-                        "area": obb[4] * obb[5]  # width * height
+                        "area": obb[2] * obb[3],  # width * height
+                        "angle_deg": angle_deg
                     })
                     ann_id += 1
 
