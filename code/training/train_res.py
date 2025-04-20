@@ -67,7 +67,7 @@ def train():
     save_path = 'obb_fasterrcnn_full.pth'
 
     # Save the entire model
-    torch.save(model, save_path)
+    torch.save(model.state_dict(), save_path)
 
     print(f"Model saved to: {save_path}")
 

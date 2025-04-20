@@ -11,11 +11,6 @@ import numpy as np
 import cv2
 import os
 import tensorflow as tf
-import keras.utils
-from keras.applications.vgg16 import VGG16
-from keras.layers import Input, Flatten, Dense, Dropout, Conv2D, MaxPooling2D, BatchNormalization, DepthwiseConv2D
-from keras.models import Model, Sequential
-from keras.optimizers import Adam, SGD, Adadelta
 from PIL import Image
 import glob
 
