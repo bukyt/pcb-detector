@@ -58,9 +58,43 @@ class OBBRoIHeads(RoIHeads):
 
     def compute_loss(self, class_logits, box_regression, labels, regression_targets):
         loss_cls = nn.functional.cross_entropy(class_logits, labels)
-        loss_box_reg = nn.functional.smooth_l1_loss(
-            box_regression, regression_targets, beta=1.0, reduction="mean"
-        )
+
+        # Assuming regression_targets and box_regression are shaped (N, num_classes * 5)
+        # We reshape them to (N, num_classes, 5)
+        N, total_dims = box_regression.shape
+        num_classes = self.num_classes
+        box_regression = box_regression.view(N, num_classes, 5)
+        regression_targets = regression_targets.view(N, num_classes, 5)
+
+        # Select only the regression targets for the correct class
+        device = box_regression.device
+        indices = torch.arange(N, device=device)
+        labels = labels.to(device)
+        box_regression = box_regression[indices, labels]
+        regression_targets = regression_targets[indices, labels]
+
+        # Split components
+        cx_pred, cy_pred, w_pred, h_pred, angle_pred = box_regression.split(1, dim=1)
+        cx_tgt,  cy_tgt,  w_tgt,  h_tgt,  angle_tgt  = regression_targets.split(1, dim=1)
+
+        # Normalize angle from degrees [-180, 180] to [0, 1]
+        angle_pred_norm = (angle_pred + 180.0) / 360.0
+        angle_tgt_norm = (angle_tgt + 180.0) / 360.0
+
+        # Compute loss components with weights
+        loss_cx = nn.functional.smooth_l1_loss(cx_pred, cx_tgt, beta=1.0, reduction="mean")
+        loss_cy = nn.functional.smooth_l1_loss(cy_pred, cy_tgt, beta=1.0, reduction="mean")
+        loss_w  = nn.functional.smooth_l1_loss(w_pred,  w_tgt,  beta=1.0, reduction="mean")
+        loss_h  = nn.functional.smooth_l1_loss(h_pred,  h_tgt,  beta=1.0, reduction="mean")
+        loss_angle = nn.functional.smooth_l1_loss(angle_pred_norm, angle_tgt_norm, beta=1.0, reduction="mean")
+
+        # Weighted sum (cx and cy more important, w/h less, angle moderate)
+        loss_box_reg = (2.0 * loss_cx +
+                        2.0 * loss_cy +
+                        0.5 * loss_w +
+                        0.5 * loss_h +
+                        1.0 * loss_angle)
+
         return loss_cls, loss_box_reg
 
 

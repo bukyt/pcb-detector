@@ -156,4 +156,4 @@ def yolo_detection():
     vc.release()
 
 if __name__ == "__main__":
-    yolo_detection()
+    resNeXt_detection()
