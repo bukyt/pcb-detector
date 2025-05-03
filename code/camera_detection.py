@@ -14,7 +14,8 @@ import numpy as np
 # Function to capture and display real-time YOLO model inference
 def getImageYolo(model, vc, frame):
     frame = cv2.resize(frame, (640, 640))
-    results = model(frame)
+    results = model(frame, conf=0.0001)
+    
 
     for result in results:
         keypoints = result.keypoints
@@ -60,7 +61,7 @@ def getImageResNeXt(model, vc, frame):
     frame = cv2.resize(frame, (640, 640))
     h_img, w_img = frame.shape[:2]
 
-    frame = (frame / 255.0).astype("float32")
+    #frame = (frame / 255.0).astype("float32")
     img_tensor = ToTensor()(frame).float()
 
     with torch.no_grad():
@@ -132,7 +133,7 @@ def yolo_detection():
     cv2.namedWindow("YOLO Detection")
     cv2.createTrackbar('Focus', 'YOLO Detection', focus, 255, change_focus)
     ###########train_model()##############
-    model = YOLO("training\\newdata_868\\yolov11_keypoint_train\\experiment_212\\weights\\best.pt")
+    model = YOLO("training\\yolo_dataset\\yolov11_keypoint_train\\experiment_14\\weights\\best.pt")
     #model = YOLO("training\\yolo_dataset\\yolov11_keypoint_train\\experiment_14\\weights\\best.pt",task="pose")
     
     # Check if the video capture is open
@@ -143,6 +144,7 @@ def yolo_detection():
 
     while rval:
         rval, frame = vc.read()  # Read a new frame
+        
         if not rval:
             break
         getImageYolo(model,vc,frame)
@@ -156,4 +158,4 @@ def yolo_detection():
     vc.release()
 
 if __name__ == "__main__":
-    resNeXt_detection()
+    yolo_detection()
