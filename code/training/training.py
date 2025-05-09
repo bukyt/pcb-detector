@@ -27,7 +27,7 @@ def train_yolo():
     # Train model
     model.train(
         data=dataset_yaml,
-        epochs=100,  # Number of training epochs
+        epochs=150,  # Number of training epochs
         imgsz=640,  # Image size
         batch=16,    # Adjust batch size based on GPU memory
         device=device,  # Use GPU if available

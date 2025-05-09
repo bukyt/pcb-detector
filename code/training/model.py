@@ -7,6 +7,73 @@ from torchvision.models.detection.backbone_utils import resnet_fpn_backbone
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from torchvision.models.detection.roi_heads import RoIHeads
 from torchvision.models.detection.faster_rcnn import TwoMLPHead
+import torch.nn.functional as F
+from torchvision.ops.boxes import box_convert
+from shapely.geometry import box as shapely_box
+from shapely import affinity
+
+def fpdiou_loss(pred_boxes, target_boxes, angle_weight=1.0):
+    """
+    Computes the FPDIoU loss between predicted and target bounding boxes.
+    https://arxiv.org/html/2405.09942v1
+    Parameters:
+    - pred_boxes: Tensor of shape (N, 5) containing predicted boxes in (cx, cy, w, h, angle_deg)
+    - target_boxes: Tensor of shape (N, 5) containing ground truth boxes in the same format
+    - angle_weight: Weighting factor for the angle loss component
+
+    Returns:
+    - loss: Scalar tensor representing the FPDIoU loss
+    """
+    # Extract components
+    cx_p, cy_p, w_p, h_p, angle_p = pred_boxes.unbind(dim=1)
+    cx_t, cy_t, w_t, h_t, angle_t = target_boxes.unbind(dim=1)
+
+    # Center distance loss
+    center_dist = torch.sqrt((cx_p - cx_t) ** 2 + (cy_p - cy_t) ** 2)
+
+    # Size loss
+    size_loss = torch.abs(w_p - w_t) + torch.abs(h_p - h_t)
+
+    # Angle loss (convert degrees to radians)
+    angle_diff = torch.abs(angle_p - angle_t) % 360
+    angle_diff = torch.where(angle_diff > 180, 360 - angle_diff, angle_diff)
+    angle_loss = angle_diff / 180  # Normalize to [0, 1]
+    
+    # Combine losses
+    loss = center_dist + size_loss + angle_weight * angle_loss
+    return loss.mean()
+
+def rotated_box_to_polygon(cx, cy, w, h, angle_deg):
+    rect = shapely_box(-w/2, -h/2, w/2, h/2)  # centered at origin
+    rotated = affinity.rotate(rect, angle_deg, origin=(0, 0))
+    moved = affinity.translate(rotated, cx, cy)
+    return moved
+
+def rotated_iou(box1, box2):
+    poly1 = rotated_box_to_polygon(*box1)
+    poly2 = rotated_box_to_polygon(*box2)
+    inter = poly1.intersection(poly2).area
+    union = poly1.union(poly2).area
+    return inter / union if union > 0 else 0
+
+def custom_nms_rotated(boxes, scores, iou_threshold=0.5):
+    idxs = scores.argsort(descending=True)
+    keep = []
+
+    while idxs.numel() > 0:
+        current = idxs[0].item()
+        keep.append(current)
+
+        if idxs.numel() == 1:
+            break
+
+        current_box = boxes[current].tolist()
+        rest = boxes[idxs[1:]].tolist()
+
+        ious = torch.tensor([rotated_iou(current_box, b) for b in rest])
+        idxs = idxs[1:][ious <= iou_threshold]
+
+    return torch.tensor(keep, dtype=torch.long)
 
 
 class OBBRoIHeads(RoIHeads):
@@ -56,52 +123,102 @@ class OBBRoIHeads(RoIHeads):
                 )
         return result, losses
 
-    def compute_loss(self, class_logits, box_regression, labels, regression_targets):
-        loss_cls = nn.functional.cross_entropy(class_logits, labels)
+    def postprocess_detections(self, class_logits, box_regression, proposals, image_shapes):
+        device = class_logits.device
+        num_classes = class_logits.shape[1]
 
-        # Assuming regression_targets and box_regression are shaped (N, num_classes * 5)
-        # We reshape them to (N, num_classes, 5)
+        pred_scores = torch.softmax(class_logits, -1)
+        boxes_per_image = [len(p) for p in proposals]
+
+        pred_boxes = self.decode_rotated_boxes(box_regression, proposals)
+
+        pred_boxes = pred_boxes.split(boxes_per_image, 0)
+        pred_scores = pred_scores.split(boxes_per_image, 0)
+
+        all_boxes = []
+        all_scores = []
+        all_labels = []
+
+        for boxes, scores in zip(pred_boxes, pred_scores):
+            boxes = boxes.view(-1, 5)  # cx, cy, w, h, angle
+            scores = scores.view(-1, num_classes)
+
+            image_boxes = []
+            image_scores = []
+            image_labels = []
+
+            for j in range(1, num_classes):  # skip background
+                cls_scores = scores[:, j]
+                inds = torch.where(cls_scores > self.score_thresh)[0]
+                cls_scores = cls_scores[inds]
+                cls_boxes = boxes[inds]
+
+                if cls_boxes.numel() == 0:
+                    continue
+
+                keep = custom_nms_rotated(cls_boxes, cls_scores, self.nms_thresh)
+                cls_boxes = cls_boxes[keep]
+                cls_scores = cls_scores[keep]
+
+                image_boxes.append(cls_boxes)
+                image_scores.append(cls_scores)
+                image_labels.append(torch.full_like(cls_scores, j, dtype=torch.int64))
+
+            if image_boxes:
+                image_boxes = torch.cat(image_boxes)
+                image_scores = torch.cat(image_scores)
+                image_labels = torch.cat(image_labels)
+            else:
+                image_boxes = torch.zeros((0, 5), device=device)
+                image_scores = torch.zeros((0,), device=device)
+                image_labels = torch.zeros((0,), dtype=torch.int64, device=device)
+
+            all_boxes.append(image_boxes)
+            all_scores.append(image_scores)
+            all_labels.append(image_labels)
+
+        return all_boxes, all_scores, all_labels
+
+    
+    def compute_loss(self, class_logits, box_regression, labels, regression_targets):
+        device = class_logits.device
         N, total_dims = box_regression.shape
         num_classes = self.num_classes
-        box_regression = box_regression.view(N, num_classes, 5)
-        regression_targets = regression_targets.view(N, num_classes, 5)
 
-        # Select only the regression targets for the correct class
-        device = box_regression.device
-        indices = torch.arange(N, device=device)
-        labels = labels.to(device)
-        box_regression = box_regression[indices, labels]
-        regression_targets = regression_targets[indices, labels]
+        # --- Classification loss ---
+        loss_cls = F.binary_cross_entropy_with_logits(class_logits, labels.float())  # Sigmoid for binary classification
 
-        # Split components
-        cx_pred, cy_pred, w_pred, h_pred, angle_pred = box_regression.split(1, dim=1)
-        cx_tgt,  cy_tgt,  w_tgt,  h_tgt,  angle_tgt  = regression_targets.split(1, dim=1)
+        # --- Regression loss: only for foreground samples ---
+        fg_inds = labels > 0
+        if fg_inds.any():
+            # Reshape to (N, num_classes, 5)
+            box_regression = box_regression.view(N, num_classes, 5)
+            regression_targets = regression_targets.view(N, num_classes, 5)
 
-        # Normalize angle from degrees [-180, 180] to [0, 1]
-        angle_pred_norm = (angle_pred + 180.0) / 360.0
-        angle_tgt_norm = (angle_tgt + 180.0) / 360.0
+            indices = torch.arange(N, device=device)
+            box_regression = box_regression[indices, labels]
+            regression_targets = regression_targets[indices, labels]
 
-        # Compute loss components with weights
-        loss_cx = nn.functional.smooth_l1_loss(cx_pred, cx_tgt, beta=1.0, reduction="mean")
-        loss_cy = nn.functional.smooth_l1_loss(cy_pred, cy_tgt, beta=1.0, reduction="mean")
-        loss_w  = nn.functional.smooth_l1_loss(w_pred,  w_tgt,  beta=1.0, reduction="mean")
-        loss_h  = nn.functional.smooth_l1_loss(h_pred,  h_tgt,  beta=1.0, reduction="mean")
-        loss_angle = nn.functional.smooth_l1_loss(angle_pred_norm, angle_tgt_norm, beta=1.0, reduction="mean")
+            # Only select foreground examples
+            box_regression_fg = box_regression[fg_inds]
+            regression_targets_fg = regression_targets[fg_inds]
 
-        # Weighted sum (cx and cy more important, w/h less, angle moderate)
-        loss_box_reg = (2.0 * loss_cx +
-                        2.0 * loss_cy +
-                        0.5 * loss_w +
-                        0.5 * loss_h +
-                        1.0 * loss_angle)
+            # Compute FPDIoU loss
+            loss_box_reg = fpdiou_loss(box_regression_fg, regression_targets_fg, angle_weight=1.0)
+        else:
+            loss_box_reg = torch.tensor(5.0, device=device)  # Or some dynamic value like 5.0
 
-        return loss_cls, loss_box_reg
+        # Combine
+        total_loss = loss_cls + loss_box_reg
+
+        return total_loss, loss_cls, loss_box_reg
+
 
 
 class OBBFasterRCNN(FasterRCNN):
     def __init__(self, num_classes):
         # Load ResNet+FPN backbone
-        backbone = resnet_fpn_backbone('resnet50', pretrained=True)
+        backbone = resnet_fpn_backbone('resnet50', pretrained=False)
 
         # Define custom anchor sizes and aspect ratios
         anchor_generator = AnchorGenerator(

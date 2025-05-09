@@ -37,13 +37,12 @@ def train():
     # Model
     model = OBBFasterRCNN(num_classes=2)  # 1 class + background
     model.to(device)
-
     # Optimizer
     params = [p for p in model.parameters() if p.requires_grad]
-    optimizer = torch.optim.Adam(params, lr=1e-4)
+    optimizer = torch.optim.Adam(params, lr=1e-6)
 
     # Training Loop
-    num_epochs = 10
+    num_epochs = 1
     for epoch in range(num_epochs):
         model.train()
         running_loss = 0.0

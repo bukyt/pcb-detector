@@ -6,6 +6,7 @@ import torch
 
 class OBBFasterRCNN(FasterRCNN):
     def __init__(self, num_classes):
+        #https://docs.pytorch.org/vision/main/models.html
         # Load a standard backbone
         backbone = torchvision.models.resnet50(weights="DEFAULT")
         backbone = nn.Sequential(*list(backbone.children())[:-2])  # Remove FC
