@@ -206,7 +206,7 @@ class OBBRoIHeads(RoIHeads):
             # Compute FPDIoU loss
             loss_box_reg = fpdiou_loss(box_regression_fg, regression_targets_fg, angle_weight=1.0)
         else:
-            loss_box_reg = torch.tensor(5.0, device=device)  # Or some dynamic value like 5.0
+            loss_box_reg = torch.tensor(5.0, device=device)
 
         # Combine
         total_loss = loss_cls + loss_box_reg
