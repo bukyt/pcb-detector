@@ -39,25 +39,16 @@ class OBBDataset(Dataset):
         for ann in anns:
             # Expected bbox format: [cx, cy, w, h, angle]
             cx, cy, w, h, angle = ann['bbox']
+            boxes.append([cx, cy, w, h, angle])
+            labels.append(ann['category_id'] + 1)
 
-            # Convert [cx, cy, w, h] to [x_min, y_min, x_max, y_max]
-            x_min = cx - w / 2
-            y_min = cy - h / 2
-            x_max = cx + w / 2
-            y_max = cy + h / 2
-
-            boxes.append([x_min, y_min, x_max, y_max])
-            labels.append(ann['category_id'])
-            angles.append(angle)
 
         boxes = torch.tensor(boxes, dtype=torch.float32)
         labels = torch.tensor(labels, dtype=torch.int64)
-        angles = torch.tensor(angles, dtype=torch.float32)
 
         target = {
             'boxes': boxes,
             'labels': labels,
-            'angles': angles,
             'image_id': torch.tensor([image_id])
         }
 
