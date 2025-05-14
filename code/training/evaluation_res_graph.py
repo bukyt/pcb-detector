@@ -93,7 +93,7 @@ def evaluate_background_and_poles(model, dataloader, device):
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    model_path = "checkpoints/model_epoch_10.pth"
+    model_path = "checkpoints/model_last.pth"
     val_ann = "obb_data/val.json"
     image_root = "newdata_868/data/images/train"
 

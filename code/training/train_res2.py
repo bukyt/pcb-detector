@@ -70,10 +70,10 @@ def main():
 
     # Optimizer
     params = [p for p in model.parameters() if p.requires_grad]
-    optimizer = torch.optim.SGD(params, lr=0.005, momentum=0.9, weight_decay=0.0005)
+    optimizer = torch.optim.SGD(params, lr=0.0005, momentum=0.9, weight_decay=0.0005)
 
     # Training loop
-    num_epochs = 5
+    num_epochs = 1
     for epoch in range(num_epochs):
         model.train()
         for images, targets in train_loader:

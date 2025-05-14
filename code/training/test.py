@@ -28,11 +28,25 @@ def visualize_predictions(image, predictions, save_path=None):
 
     if predictions and len(predictions['boxes']) > 0:
         for box, score, label in zip(predictions['boxes'], predictions['scores'], predictions['labels']):
-            if score < 0.01:
+            if score < 0.0:
                 continue
-            cx, cy, w, h, angle = box.tolist()
-            poly = rotated_box_to_polygon(cx, cy, w, h, angle)
-            patch = patches.Polygon(poly, linewidth=2, edgecolor='r', facecolor='none')
+            box = box.tolist()
+            if len(box) == 5:
+                cx, cy, w, h, angle = box
+                poly = rotated_box_to_polygon(cx, cy, w, h, angle)
+                patch = patches.Polygon(poly, linewidth=2, edgecolor='r', facecolor='none')
+            elif len(box) == 4:
+                xmin, ymin, xmax, ymax = box
+                w = xmax - xmin
+                h = ymax - ymin
+                cx = xmin + w / 2
+                cy = ymin + h / 2
+                angle = 0  # assume upright
+                poly = rotated_box_to_polygon(cx, cy, w, h, angle)
+                patch = patches.Polygon(poly, linewidth=2, edgecolor='b', facecolor='none')
+            else:
+                continue  # skip invalid box
+
             ax.add_patch(patch)
             ax.text(cx, cy, f'{score:.2f}', color='white', fontsize=8, ha='center')
             ax.text(cx, cy - 10, f'Class: {label}', color='yellow', fontsize=8, ha='center')
