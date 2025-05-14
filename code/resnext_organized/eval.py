@@ -155,7 +155,7 @@ for images, targets in val_loader:
 
         corners = np.array(convert_to_corners(cx, cy, w, h, angle), dtype=np.int32)
         cv2.polylines(image_bgr, [corners], isClosed=True, color=(0, 255, 0), thickness=2)
-        cv2.putText(image_bgr, f"P:{pred['label']} {pred['score']:.2f}", (int(cx), int(cy)), font, 0.5, (0, 255, 0), 1)
+        cv2.putText(image_bgr, f"P:{pred['label']} {pred['score']:.2f}", (int(cx), int(cy)), font, (0, 255, 0), 1)
 
     for t in targets:
         gt_boxes = t['boxes'].cpu().numpy()
@@ -163,7 +163,7 @@ for images, targets in val_loader:
         for box, label in zip(gt_boxes, gt_labels):
             corners = np.array(convert_to_corners(*box), dtype=np.int32)
             cv2.polylines(image_bgr, [corners], isClosed=True, color=(255, 0, 0), thickness=2)
-            cv2.putText(image_bgr, f"GT:{label}", (int(box[0]), int(box[1]) - 10), font, 0.5, (255, 0, 0), 1)
+            cv2.putText(image_bgr, f"GT:{label}", (int(box[0]), int(box[1]) - 10), font , (255, 0, 0), 1)
 
     image_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
     plt.figure(figsize=(10, 10))
