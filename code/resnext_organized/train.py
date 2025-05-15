@@ -17,9 +17,9 @@ from torch.optim.lr_scheduler import StepLR
 
 # Configuration
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-epochs = 10
+epochs = 60
 lr = 1e-5
-batch_size = 1
+batch_size = 2
 num_classes = 2  # 1 class + background
 
 # Dataset

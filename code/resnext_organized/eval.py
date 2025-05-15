@@ -21,7 +21,7 @@ def convert_to_corners(cx, cy, w, h, angle):
     cos_theta = math.cos(angle_rad)
     sin_theta = math.sin(angle_rad)
     corners = [
-        (-hw, -hh), (hw, -hh), (hw, hh), (-hw, hh)
+        (cx-hw, cy-hh), (cx+hw, cy-hh), (cx+hw, cy-hh), (cx-hw, cx+hh)
     ]
     return [
         (cos_theta * dx - sin_theta * dy + cx, sin_theta * dx + cos_theta * dy + cy)
@@ -39,16 +39,16 @@ def compute_iou(box1, box2):
 # Score threshold filter
 def filter_predictions_by_score(predictions, threshold):
     filtered_batch = []
-    for preds in predictions:  # each `preds` is a dict with 'boxes', 'labels', 'scores'
-        boxes = preds['boxes'].cpu().numpy()
-        labels = preds['labels'].cpu().numpy()
-        scores = preds['scores'].cpu().numpy()
-
-        filtered = []
-        for box, label, score in zip(boxes, labels, scores):
-            if score > threshold:
-                filtered.append({'box': box, 'label': label, 'score': score})
-        filtered_batch.append(filtered)
+    for predClump in predictions:
+        for preds in predClump:  # each `preds` is a dict with 'box', 'label', 'score'
+            boxes = preds['box']
+            labels = preds['label']
+            scores = preds['score']
+            filtered = []
+            if scores<threshold:
+                filtered.append({'box': boxes, 'label': labels, 'score': scores})
+            filtered_batch.append(filtered)
+    print(filtered_batch)
     return filtered_batch  # list of lists: filtered predictions per image
 
 # Configuration
@@ -99,6 +99,7 @@ with torch.no_grad():
                     if compute_iou(pred_corners, gt_corners) > iou_threshold and pred_label == gt_labels[i]:
                         all_preds.append(pred_label)
                         all_labels.append(gt_labels[i])
+                        #print(pred_label)
                         matched_gt[i] = True
                         matched = True
                         break
@@ -115,6 +116,8 @@ with torch.no_grad():
                     all_labels.append(gt_labels[i])
 
 
+
+print(len(all_preds))
 cm = confusion_matrix(all_labels, all_preds)
 print("Confusion Matrix:\n", cm)
 
@@ -122,53 +125,20 @@ plt.figure(figsize=(8, 6))
 plt.imshow(cm, interpolation="nearest", cmap=plt.cm.Blues)
 plt.title("Confusion Matrix")
 plt.colorbar()
-class_names = ['background', 'object']
-plt.xticks(np.arange(len(class_names)), class_names, rotation=45)
-plt.yticks(np.arange(len(class_names)), class_names)
+class_names = ['object','background']
+tick_marks = np.arange(len(class_names))
+plt.xticks(tick_marks, class_names, rotation=45)
+plt.yticks(tick_marks, class_names)
+
+# Add numbers inside the squares
+thresh = cm.max() / 2.
+for i in range(cm.shape[0]):
+    for j in range(cm.shape[1]):
+        plt.text(j, i, format(cm[i, j], 'd'),
+                 ha="center", va="center",
+                 color="white" if cm[i, j] > thresh else "black")
+
 plt.tight_layout()
 plt.ylabel('True label')
 plt.xlabel('Predicted label')
 plt.show()
-
-# Visualization
-font = cv2.FONT_HERSHEY_SIMPLEX
-example_count = 0
-val_loader = DataLoader(val_dataset, batch_size=1, shuffle=False, collate_fn=obb_collate_fn)
-
-for images, targets in val_loader:
-    if example_count >= 5: break
-    image = images[0].permute(1, 2, 0).cpu().numpy() * 255
-    image = image.astype(np.uint8).copy()
-    image_bgr = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-
-    images = images.to(device)
-    with torch.no_grad():
-        outputs = model(images)
-
-    filtered_preds = filter_predictions_by_score(outputs, score_threshold)
-
-    for pred in filtered_preds:
-        cx, cy, w, h, angle = pred['box']
-        print("Predicted Box:", pred['box'])
-        print("Score:", pred['score'])
-        print("Label:", pred['label'])
-
-        corners = np.array(convert_to_corners(cx, cy, w, h, angle), dtype=np.int32)
-        cv2.polylines(image_bgr, [corners], isClosed=True, color=(0, 255, 0), thickness=2)
-        cv2.putText(image_bgr, f"P:{pred['label']} {pred['score']:.2f}", (int(cx), int(cy)), font, (0, 255, 0), 1)
-
-    for t in targets:
-        gt_boxes = t['boxes'].cpu().numpy()
-        gt_labels = t['labels'].cpu().numpy()
-        for box, label in zip(gt_boxes, gt_labels):
-            corners = np.array(convert_to_corners(*box), dtype=np.int32)
-            cv2.polylines(image_bgr, [corners], isClosed=True, color=(255, 0, 0), thickness=2)
-            cv2.putText(image_bgr, f"GT:{label}", (int(box[0]), int(box[1]) - 10), font , (255, 0, 0), 1)
-
-    image_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
-    plt.figure(figsize=(10, 10))
-    plt.imshow(image_rgb)
-    plt.axis('off')
-    plt.title(f"Sample {example_count+1}")
-    plt.show()
-    example_count += 1

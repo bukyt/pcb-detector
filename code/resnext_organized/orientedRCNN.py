@@ -3,6 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torchvision.ops import roi_align
 import time
+from torchvision.ops import nms
+import math
 timenow=time.time()
 def compute_losses(class_logits, bbox_preds, targets, proposals):
     # Match GT boxes to proposals
@@ -248,7 +250,46 @@ class OrientedRoIHead(nn.Module):
         x = F.relu(self.fc2(x))
         return self.cls_score(x), self.bbox_pred(x)
 
-def postprocess_outputs(class_logits, obb_preds, proposals, batch_size, score_thresh=0.5, top_k=100):
+
+def convert_to_corners(cx, cy, w, h, angle):
+    angle_rad = math.radians(angle)
+    cos_theta = math.cos(angle_rad)
+    sin_theta = math.sin(angle_rad)
+    dx = w / 2
+    dy = h / 2
+
+    corners = [
+        (-dx, -dy),
+        ( dx, -dy),
+        ( dx,  dy),
+        (-dx,  dy)
+    ]
+
+    return [
+        (
+            cx + x * cos_theta - y * sin_theta,
+            cy + x * sin_theta + y * cos_theta
+        )
+        for x, y in corners
+    ]
+
+def obb_to_aabb(boxes):
+    # boxes: [N, 5] -> cx, cy, w, h, angle
+    aabbs = []
+    for box in boxes:
+        cx, cy, w, h, angle = box.tolist()
+        corners = convert_to_corners(cx, cy, w, h, angle)
+        xs = [p[0] for p in corners]
+        ys = [p[1] for p in corners]
+        xmin = min(xs)
+        ymin = min(ys)
+        xmax = max(xs)
+        ymax = max(ys)
+        aabbs.append([xmin, ymin, xmax, ymax])
+    return torch.tensor(aabbs, dtype=torch.float32, device=boxes.device)
+
+
+def postprocess_outputs(class_logits, obb_preds, proposals, batch_size, score_thresh=0.1, top_k=100):
     scores = F.softmax(class_logits, dim=1)
     confidences, labels = scores.max(dim=1)
 
@@ -257,16 +298,33 @@ def postprocess_outputs(class_logits, obb_preds, proposals, batch_size, score_th
     labels = labels[keep]
     confidences = confidences[keep]
 
+    # Convert to axis-aligned boxes for NMS
+    boxes_xyxy = obb_to_aabb(boxes)  # implemented above
+
+    keep_nms = nms(boxes_xyxy, confidences, iou_threshold=0.5)
+
+    boxes = boxes[keep_nms]
+    labels = labels[keep_nms]
+    confidences = confidences[keep_nms]
+
     results = [[] for _ in range(batch_size)]
-    index = 0
+
+    # Need to assign predictions back to images.
+    # We assume original proposal structure [P1, P2, ..., PN], flattened in same order.
+    # Let's reconstruct a map from flat index to image index.
+    image_indices = []
+    for i, props in enumerate(proposals):
+        image_indices.extend([i] * len(props))
+    image_indices = torch.tensor(image_indices, device=boxes.device)
+    image_indices = image_indices[keep][keep_nms]
+
     for i in range(batch_size):
-        num_props = len(proposals[i])
-        for j in range(num_props):
-            if keep[index]:
-                results[i].append({
-                    "box": obb_preds[index].detach().cpu().numpy(),
-                    "label": labels[index].item(),
-                    "score": confidences[index].item()
-                })
-            index += 1
+        inds = (image_indices == i).nonzero(as_tuple=True)[0]
+        top_inds = inds[:top_k]
+        for idx in top_inds:
+            results[i].append({
+                "box": boxes[idx].detach().cpu().numpy(),
+                "label": labels[idx].item(),
+                "score": confidences[idx].item()
+            })
     return results
